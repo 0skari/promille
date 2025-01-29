@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alkoholipitoisuus ja kaavio</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); }
+        .step { display: none; }
+        .active { display: block; }
+        .input-field { width: 90%; padding: 12px; font-size: 18px; border: 2px solid #ddd; border-radius: 8px; text-align: center; }
+        .button { width: 100%; padding: 15px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; background-color: #007bff; color: white; margin-top: 10px; }
+        .button:hover { background-color: #0056b3; }
+        .selected { background-color: #0056b3; color: white; }
+        .warning { color: red; font-weight: bold; text-align: center; margin-top: 10px; }
+        .warning.orange { color: orange; }
+        canvas { width: 100%; height: 100%; }
+        .chart-container { width: 100%; height: 50vh; display: flex; justify-content: center; align-items: center; }
+        .delete-btn { color: red; cursor: pointer; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="step1" class="step active">
+            <h1>Syötä painosi:</h1>
+            <input type="number" id="paino" class="input-field" placeholder="Paino (kg)" min="20" max="350" onfocus="this.select()">
+            <button class="button" onclick="nextStep(2)">Jatka</button>
+        </div>
+
+        <div id="step2" class="step">
+            <h1>Valitse sukupuolesi</h1>
+            <button class="button" id="male" onclick="setGender('male')">Mies</button>
+            <button class="button" id="female" onclick="setGender('female')">Nainen</button>
+            <button class="button" id="continueGender" onclick="nextStep(3)" disabled>Jatka</button>
+        </div>
+
+        <div id="step3" class="step">
+            <h1>Lisää juomat</h1>
+            <div id="juomat"></div>
+            <button class="button" onclick="lisaaJuoma()">Lisää juoma</button>
+            <button class="button" onclick="nextStep(4)">Jatka</button>
+        </div>
+
+        <div id="step4" class="step">
+            <h1 id="promilleTitle">Promille: 0</h1>
+            <div id="warning-message" class="warning"></div>
+            <div class="chart-container">
+                <canvas id="kaavio"></canvas>
+            </div>
+            <button class="button" onclick="location.reload()">Alkuun</button>
+        </div>
+    </div>
+
+    <script>
+        let sukupuoli = null;
+        let chart = null;
+        document.getElementById("paino").focus();
+
+        function setGender(gender) {
+            sukupuoli = gender;
+            document.getElementById("male").classList.remove("selected");
+            document.getElementById("female").classList.remove("selected");
+
+            if (gender === "male") document.getElementById("male").classList.add("selected");
+            else document.getElementById("female").classList.add("selected");
+
+            document.getElementById("continueGender").disabled = false;
+        }
+
+        function nextStep(step) {
+            if (step === 2 && (document.getElementById('paino').value < 20 || document.getElementById('paino').value > 350)) {
+                alert("Syötä paino välillä 20-350 kg.");
+                return;
+            }
+            if (step === 3 && !sukupuoli) {
+                alert("Valitse sukupuoli.");
+                return;
+            }
+
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById('step' + step).classList.add('active');
+
+            if (step === 4) paivitaKaavio();
+        }
+
+        function lisaaJuoma() {
+            const juomatDiv = document.getElementById('juomat');
+            const uusiJuoma = document.createElement('div');
+            uusiJuoma.innerHTML = `
+                <label>Määrä (ml):</label>
+                <input type="number" class="maara" value="330">
+                <label>Väkevyys (%):</label>
+                <input type="number" class="vakevyys" value="5.5">
+                <span class="delete-btn" onclick="poistaJuoma(this)">&#10006;</span><br><br>
+            `;
+            juomatDiv.appendChild(uusiJuoma);
+        }
+
+        function poistaJuoma(element) {
+            const juomatDiv = document.getElementById('juomat');
+            juomatDiv.removeChild(element.parentElement);
+        }
+
+        function paivitaKaavio() {
+    let paino = parseFloat(document.getElementById("paino").value);
+    let jakaja = sukupuoli === 'male' ? 0.68 : 0.55;
+    let alkoholiGrammat = 0;
+
+    document.querySelectorAll('.maara').forEach((el, i) => {
+        let maara = parseFloat(el.value);
+        let vakevyys = parseFloat(document.getElementsByClassName("vakevyys")[i].value);
+        alkoholiGrammat += maara * (vakevyys / 100) * 0.789;
+    });
+
+    let promillet = alkoholiGrammat / (paino * jakaja);
+    document.getElementById("promilleTitle").innerHTML = `Veren alkoholipitoisuus promilleina: ${promillet.toFixed(2)}`;
+
+    let maxX = Math.ceil(promillet / 0.10) * 60;
+    const timeLabels = Array.from({ length: maxX / 10 + 1 }, (_, i) => i * 10);
+
+    // Muutetaan aika tunteiksi ja minuuteiksi
+    const timeLabelsFormatted = timeLabels.map(time => {
+        const hours = Math.floor(time / 60);
+        const minutes = time % 60;
+        return `${hours}h ${minutes}m`; // Muotoillaan aika tunneiksi ja minuuteiksi
+    });
+
+    const promilleData1 = timeLabels.map(time => Math.max(promillet - (0.10 * time / 60), 0));
+    const promilleData2 = timeLabels.map(time => Math.max(promillet - (0.25 * time / 60), 0));
+
+    // Lisää pisteet (0, 0) ja (20, laskettu promillemäärä)
+    promilleData1.unshift(0);
+    promilleData2.unshift(0);
+    timeLabelsFormatted.unshift("0h 0m");
+
+    promilleData1.push(Math.max(promillet - (0.10 * maxX / 60), 0)); // Varmistetaan, että viimeinen arvo on 0
+    promilleData2.push(Math.max(promillet - (0.25 * maxX / 60), 0)); // Varmistetaan, että viimeinen arvo on 0
+    timeLabelsFormatted.push("20h 0m");
+
+    let warningMessage = "";
+    if (promillet >= 1.0) warningMessage += "<span style='color: orange;'>⚠️ Suuri tapaturman riski! </span>";
+    if (promillet >= 0.5) warningMessage += "<br>🚫 Ajaminen ei ole sallittua!</br>";
+    document.getElementById("warning-message").innerHTML = warningMessage;
+
+    let ctx = document.getElementById('kaavio').getContext('2d');
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timeLabelsFormatted, // Käytetään muotoiltuja aika-arvoja
+            datasets: [
+                { label: "Alkoholi palaa viimeistään", borderColor: "blue", data: promilleData1, fill: false },
+                { label: "Alkoholi palaa aikaisintaan", borderColor: "green", data: promilleData2, fill: false }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,  // Tämä estää mittasuhteen säilyttämisen
+            interaction: { mode: null },
+            scales: { y: { beginAtZero: true }, x: { max: maxX } },
+            plugins: {
+                annotation: {
+                    annotations: {
+                        line1: { type: 'line', yMin: 0.5, yMax: 0.5, borderColor: 'red', borderWidth: 2, borderDash: [5, 5] },
+                        line2: { type: 'line', yMin: 1.0, yMax: 1.0, borderColor: 'orange', borderWidth: 2 }
+                    }
+                }
+            }
+        }
+    });
+}
+
+
+    </script>
+</body>
+</html
