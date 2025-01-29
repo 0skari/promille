@@ -116,7 +116,7 @@
     });
 
     let promillet = alkoholiGrammat / (paino * jakaja);
-    document.getElementById("promilleTitle").innerHTML = `Veren alkoholipitoisuus promilleina: ${promillet.toFixed(2)}`;
+    document.getElementById("promilleTitle").innerHTML = `Veren alkoholipitoisuus promilleina: <span style="color: maroon;">${promillet.toFixed(2)}</span>`;
 
     let maxX = Math.ceil(promillet / 0.10) * 60;
     const timeLabels = Array.from({ length: maxX / 10 + 1 }, (_, i) => i * 10);
