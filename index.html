@@ -133,34 +133,27 @@
       let labels = [];
       let maxPromille = 0;
 
-      for (let t = 0; t <= 1200; t += 10) {
+      for (let t = 0; t <= 36000; t += 10) {
         let promille = 0;
         juomienAjat.forEach((juomaAika, i) => {
           if (t >= juomaAika) {
             let { maara, vakevyys } = yksittaisetJuomat[i];
-            let grammamäärä = maara * (vakevyys / 100) * 0.789 * 1.2;
+            let grammamäärä = maara * (vakevyys / 100) * 0.789;
             let juomanPromille = grammamäärä / (paino * jakaja);
-            let kulunutAika = (t - juomaAika) / 60;
-            promille += Math.max(juomanPromille - (0.1 * kulunutAika), 0);
+            promille += juomanPromille;
           }
         });
 
+        // VAKIO palaminen: 0.1 promillea per tunti
+        promille = Math.max(promille - (0.1 * (t / 60)), 0);
+
         maxPromille = Math.max(maxPromille, promille);
         data.push(promille);
-      
+
         let h = Math.floor(t / 60);
         let m = t % 60;
         labels.push(`${h}h ${m}m`);
       }
-
-      if (maxPromille > 2) {  // raja kalibrointikertoimelle (toimii vain luvulla, ei graafilla) joka ei nyt käytössä
-        maxPromille = (maxPromille * 1.25); // kalibrointikerroin neutraali eli 1
-      }
-
-
-
-      const nopeaPalo = data.map(p => Math.max(p - (0.15 * 2), 0));
-      const hidasPalo = data.map(p => Math.max(p - (0.05 * 2), 0));
 
       document.getElementById("promilleTitle").innerHTML = `Veren alkoholipitoisuus ≈ <span style="color: maroon;">${maxPromille.toFixed(2)}</span> ‰`;
 
@@ -185,7 +178,6 @@
           labels: labels,
           datasets: [
             { label: "Alkoholi palaa viimeistään", borderColor: "blue", data: data, fill: false },
-            { label: "Alkoholi palaa aikaisintaan", borderColor: "green", data: hidasPalo, fill: false }
           ]
         },
         options: {
